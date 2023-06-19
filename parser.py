@@ -21,7 +21,7 @@ class ParsedImageData:
 class Parser:
     def __init__(self):
         self._soup: BeautifulSoup | None = None
-        self.parallel_downloads = 10
+        self.parallel_parsing = 1
         self.prefer_png = True
 
     def parse(self, url: str, start_page: int = 1, end_page: int | None = None) -> list[ParsedImageData]:
@@ -49,7 +49,7 @@ class Parser:
         progress = ColorfulProgress(0, total_pages, 0)
         progress.label = "Parsing pages: "
         progress.start()
-        with concurrent.futures.ThreadPoolExecutor(max_workers=self.parallel_downloads) as executor:
+        with concurrent.futures.ThreadPoolExecutor(max_workers=self.parallel_parsing) as executor:
             futures = [executor.submit(self._parse_page, str.format("{}{}", page_base_url, page_num)) for page_num in
                        range(start_page, end_page + 1)]
             image_data_list: list[ParsedImageData] = []

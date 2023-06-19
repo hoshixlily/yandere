@@ -41,7 +41,7 @@ if __name__ == '__main__':
     argparser.add_argument("-s", "--start-page", help="Start page", type=int, default=1)
     argparser.add_argument("-e", "--end-page", help="End page", type=int, default=None)
     argparser.add_argument("-png", "--prefer-png", help="Prefer PNG images over JPG", action="store_true")
-    argparser.add_argument("-p", "--parallel-downloads", help="Number of parallel downloads", type=int, default=10)
+    argparser.add_argument("-p", "--parallel-downloads", help="Number of parallel downloads", type=int, default=4)
     argparser.add_argument("-r", "--report", help="Generate a report after download is completed", action="store_false")
     argparser.add_argument("-f", "--force", help="Force download even if the file already exists", action="store_true")
     args = argparser.parse_args()
@@ -56,7 +56,6 @@ if __name__ == '__main__':
 
     parser = Parser()
     parser.prefer_png = prefer_png
-    parser.parallel_downloads = parallel_downloads
     Printer.info("Parsing pages...")
     if prefer_png:
         Printer.warning("Prefer PNG images over JPG. This will increase the parsing time.")
@@ -84,7 +83,7 @@ if __name__ == '__main__':
             Printer.info("Downloading PNG images...")
             downloader = DownloaderTool()
             downloader.display_report = display_report
-            downloader.download_tuple(png_download_data, 10)
+            downloader.download_tuple(png_download_data, parallel_downloads)
             Printer.success(f"{os.linesep}PNG images downloaded.")
         else:
             Printer.info("No PNG images to download")
@@ -111,7 +110,7 @@ if __name__ == '__main__':
         Printer.info("Downloading JPG images...")
         downloader = DownloaderTool()
         downloader.display_report = display_report
-        downloader.download_tuple(jpg_download_data, 10)
+        downloader.download_tuple(jpg_download_data, parallel_downloads)
         Printer.success(f"{os.linesep}JPG images downloaded")
     else:
         Printer.info("No JPG images to download")
