@@ -21,13 +21,17 @@ class ParsedImageData:
 class Parser:
     def __init__(self):
         self._soup: BeautifulSoup | None = None
+        self.parallel_downloads = 10
+        self.prefer_png = True
 
     def parse(self, url: str, start_page: int = 1, end_page: int | None = None) -> list[ParsedImageData]:
         return self._parse_pages(url, start_page, end_page)
 
     @staticmethod
-    def _check_if_image_exists(image_url: str) -> bool:
-        return requests.head(image_url).status_code == 200
+    def _get_png_link(page_url: str) -> str | None:
+        soup = BeautifulSoup(requests.get(page_url).content, "html5lib")
+        png_link = soup.find("a", id="png")
+        return png_link["href"] if png_link is not None else None
 
     def _parse_page(self, page_url: str):
         page_soup = self._get_page_content(page_url)
@@ -45,7 +49,7 @@ class Parser:
         progress = ColorfulProgress(0, total_pages, 0)
         progress.label = "Parsing pages: "
         progress.start()
-        with concurrent.futures.ThreadPoolExecutor() as executor:
+        with concurrent.futures.ThreadPoolExecutor(max_workers=self.parallel_downloads) as executor:
             futures = [executor.submit(self._parse_page, str.format("{}{}", page_base_url, page_num)) for page_num in
                        range(start_page, end_page + 1)]
             image_data_list: list[ParsedImageData] = []
@@ -57,13 +61,13 @@ class Parser:
         progress.stop()
         return image_data_list
 
-    @staticmethod
-    def _get_image_data(page_soup: BeautifulSoup) -> list[ParsedImageData]:
+    def _get_image_data(self, page_soup: BeautifulSoup) -> list[ParsedImageData]:
         posts_list = page_soup.find('ul', id="post-list-posts")
         if posts_list is None:
             return []
         post_li_list = posts_list.find_all('li')
         post_a_list = [post_li.find('a', class_='directlink') for post_li in post_li_list]
+        post_href_list = [post_li.find('a', class_='thumb') for post_li in post_li_list]
         quoted_image_links = [post_a['href'] for post_a in post_a_list if post_a is not None]
         image_links = [unquote(a["href"]) for a in post_a_list]
         image_data_list: list[ParsedImageData] = []
@@ -77,14 +81,14 @@ class Parser:
             unquoted_basename = urllib.parse.unquote(basename)
             raw_filename = unquoted_basename
             filename = sanitize_filename(raw_filename)
-            link_png = link_quoted.replace("/jpeg/", "/image/").replace(".jpg", ".png")
-
-            if not Parser._check_if_image_exists(link_png):
+            link_png = None
+            if self.prefer_png:
+                link_png = Parser._get_png_link(f"https://yande.re/{post_href_list[idx]['href']}")
+            if not self.prefer_png or link_png is None:
                 image_data = ParsedImageData(filename, "", link_quoted, "")
             else:
                 filename_png = filename.replace(".jpg", ".png")
                 image_data = ParsedImageData(filename, filename_png, link_quoted, link_png)
-
             image_data_list.append(image_data)
         return image_data_list
 
